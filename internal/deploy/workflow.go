@@ -1,0 +1,97 @@
+package deploy
+
+import (
+	"os"
+	"path/filepath"
+)
+
+func DefaultWorkflowYAML() string {
+	return `name: 4399 Register (Go, GitHub VM)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_minutes:
+        description: Run duration in minutes
+        required: true
+        default: '20'
+      worker_count:
+        description: Local worker count inside this VM
+        required: true
+        default: '1'
+      account_prefix:
+        description: Account prefix
+        required: true
+        default: User
+      password_prefix:
+        description: Password prefix
+        required: true
+        default: Pass
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Download ONNX Runtime (Linux x64)
+        run: |
+          curl -L -o onnxruntime.tgz https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-linux-x64-1.23.2.tgz
+          tar -xzf onnxruntime.tgz
+          cp onnxruntime-linux-x64-1.23.2/lib/libonnxruntime.so* .
+          ls -la libonnxruntime.so*
+
+      - name: Configure VM runtime
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('config.json')
+          cfg = json.loads(path.read_text(encoding='utf-8'))
+          cfg['onnx_lib_path'] = './libonnxruntime.so.1.23.2'
+          cfg['worker_count'] = int('${{ github.event.inputs.worker_count || '1' }}')
+          cfg['account_prefix'] = '${{ github.event.inputs.account_prefix || 'User' }}'
+          cfg['password_prefix'] = '${{ github.event.inputs.password_prefix || 'Pass' }}'
+          path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding='utf-8')
+          PY
+          cat config.json
+
+      - name: Build
+        env:
+          CGO_ENABLED: '1'
+          CGO_LDFLAGS: '-L${{ github.workspace }} -lonnxruntime'
+        run: go build -o register .
+
+      - name: Run register
+        run: |
+          RUN_MINUTES='${{ github.event.inputs.run_minutes || '20' }}'
+          timeout "${RUN_MINUTES}m" ./register 2>&1 | tee run.log
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-${{ github.run_number }}
+          path: |
+            accounts.txt
+            run.log
+          retention-days: 30
+`
+}
+
+func EnsureWorkflowFile(repoPath string) error {
+	workflowPath := filepath.Join(repoPath, ".github", "workflows")
+	if err := os.MkdirAll(workflowPath, 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(workflowPath, "register.yml"), []byte(DefaultWorkflowYAML()), 0644)
+}
