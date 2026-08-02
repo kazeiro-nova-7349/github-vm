@@ -21,6 +21,10 @@ on:
         description: Password prefix
         required: true
         default: Pass
+      target_count:
+        description: Target number of accounts (0 = unlimited)
+        required: false
+        default: '0'
 
 jobs:
   register:
@@ -53,6 +57,7 @@ jobs:
           cfg['worker_count'] = int('${{ github.event.inputs.worker_count || '1' }}')
           cfg['account_prefix'] = '${{ github.event.inputs.account_prefix || 'User' }}'
           cfg['password_prefix'] = '${{ github.event.inputs.password_prefix || 'Pass' }}'
+          cfg['target_count'] = int('${{ github.event.inputs.target_count || '0' }}')
           path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding='utf-8')
           PY
           cat config.json
