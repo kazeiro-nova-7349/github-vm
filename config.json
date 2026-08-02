@@ -1,0 +1,17 @@
+{
+  "onnx_lib_path": "./onnxruntime.dll",
+  "onnx_model_path": "./4399ocr/4399ocr.onnx",
+  "sfz_file_path": "./sfz.txt",
+  "output_file_path": "./accounts.txt",
+  "account_prefix": "User",
+  "password_prefix": "Pass",
+  "worker_count": 1,
+  "test_mode": true,
+  "request_timeout": 12,
+  "min_delay_ms": 3000,
+  "max_delay_ms": 8000,
+  "captcha_min_delay_ms": 200,
+  "captcha_max_delay_ms": 800,
+  "post_min_delay_ms": 100,
+  "post_max_delay_ms": 500
+}
